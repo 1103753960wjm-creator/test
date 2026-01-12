@@ -255,8 +255,8 @@ const DesignStudio = () => {
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeCategory, setActiveCategory] = useState('interior');
-  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
-  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
+  const [selectedStyle, setSelectedStyle] = useState(null);
+  const [uploadedFile, setUploadedFile] = useState(null);
   
   // History Sidebar State
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
