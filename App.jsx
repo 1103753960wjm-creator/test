@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Upload, 
   Layers, 
@@ -17,6 +17,7 @@ import {
   X,
   Loader2,
   RefreshCw,
+  Eye,
   History,
   Clock,
   MessageSquare,
@@ -25,23 +26,26 @@ import {
   Monitor,
   ShoppingBag,
   ChevronRight,
-  Download
+  Download,
+  Trees
 } from 'lucide-react';
 
 /**
- * Structura AI - Professional Interior Design Platform (V2)
+ * Structura AI - Professional Design Platform (V2.1)
  * * Updates:
- * - Added Design Categories (Interior, Poster, Product)
- * - Added Design History Sidebar
- * - Added Natural Language Refinement (In-painting)
+ * - Renamed Categories:
+ * 1. Home -> Interior (室内设计)
+ * 2. Poster -> Landscape (景观设计)
+ * 3. Product -> Poster (海报设计)
+ * - Updated assets and logic accordingly.
  */
 
 // --- Mock Data ---
 
 const CATEGORIES = [
-  { id: 'interior', name: '家装设计', icon: <Home className="w-4 h-4" />, desc: '结构锁定，精准施工图还原' },
-  { id: 'poster', name: '海报设计', icon: <Monitor className="w-4 h-4" />, desc: '创意排版，营销视觉增强' },
-  { id: 'product', name: '商品设计', icon: <ShoppingBag className="w-4 h-4" />, desc: '三维建模，材质光影模拟' }
+  { id: 'interior', name: '室内设计', icon: <Home className="w-4 h-4" />, desc: '结构锁定，精准施工图还原' },
+  { id: 'landscape', name: '景观设计', icon: <Trees className="w-4 h-4" />, desc: '地形适应，植被季相模拟' },
+  { id: 'poster', name: '海报设计', icon: <Monitor className="w-4 h-4" />, desc: '创意排版，营销视觉增强' }
 ];
 
 const STYLES = {
@@ -49,27 +53,27 @@ const STYLES = {
     { id: 'modern', name: '现代简约', desc: '线条利落，黑白灰主调', image: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&q=80&w=400' },
     { id: 'wabi-sabi', name: '侘寂风', desc: '自然质感，斑驳光影', image: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&q=80&w=400' },
   ],
+  landscape: [
+    { id: 'zen', name: '禅意庭院', desc: '枯山水，东方意境', image: 'https://images.unsplash.com/photo-1592345279419-959d784e8aad?auto=format&fit=crop&q=80&w=400' },
+    { id: 'modern-park', name: '现代园林', desc: '几何构图，疏朗开阔', image: 'https://images.unsplash.com/photo-1584464491033-06628f3a6b7b?auto=format&fit=crop&q=80&w=400' },
+  ],
   poster: [
     { id: 'minimal', name: '极简排版', desc: '留白艺术，突出主体', image: 'https://images.unsplash.com/photo-1626785774573-4b799312c95d?auto=format&fit=crop&q=80&w=400' },
     { id: 'cyber', name: '赛博朋克', desc: '霓虹光效，未来科技', image: 'https://images.unsplash.com/photo-1535378437323-955586d7d65e?auto=format&fit=crop&q=80&w=400' },
-  ],
-  product: [
-    { id: 'studio', name: '摄影棚光', desc: '纯净背景，高光质感', image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=400' },
-    { id: 'nature', name: '自然融合', desc: '户外场景，生态有机', image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=400' },
   ]
 };
 
 const MOCK_HISTORY = [
   { id: 101, title: '滨江一号院客厅', type: 'interior', date: '2023-10-24 14:30', params: '现代简约, 结构锁定ON' },
-  { id: 102, title: '双11美妆海报', type: 'poster', date: '2023-10-23 09:15', params: '赛博朋克, 尺寸9:16' },
-  { id: 103, title: '智能音箱渲染', type: 'product', date: '2023-10-22 16:45', params: '摄影棚光, 4K分辨率' },
+  { id: 102, title: '苏州私家园林方案', type: 'landscape', date: '2023-10-23 09:15', params: '禅意庭院, 俯瞰视角' },
+  { id: 103, title: '双11活动主视觉', type: 'poster', date: '2023-10-22 16:45', params: '赛博朋克, 尺寸9:16' },
 ];
 
 const MOCK_KNOWLEDGE_FILES = [
   { name: 'GB-50096 住宅设计规范.pdf', size: '2.4MB', type: 'doc', status: 'learned', category: 'interior' },
   { name: '2024-意大利米兰家具展.zip', size: '156MB', type: 'image', status: 'processing', category: 'interior' },
-  { name: '品牌VI视觉规范.pdf', size: '12MB', type: 'doc', status: 'learned', category: 'poster' },
-  { name: '产品3D源文件.obj', size: '45MB', type: 'data', status: 'learned', category: 'product' }
+  { name: '常见园林植物配置表.xls', size: '45KB', type: 'data', status: 'learned', category: 'landscape' },
+  { name: '品牌VI视觉规范.pdf', size: '12MB', type: 'doc', status: 'learned', category: 'poster' }
 ];
 
 // --- Components ---
@@ -122,18 +126,18 @@ const Hero = ({ onStart }) => (
     <div className="text-center">
       <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-indigo-50 text-indigo-700 text-sm font-medium mb-6 border border-indigo-100">
         <SparklesIcon className="w-4 h-4 mr-2" />
-        设计师专用的生成式 AI 引擎 V2.0
+        设计师专用的生成式 AI 引擎 V2.1
       </div>
       <h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 tracking-tight mb-6">
-        从 CAD 线稿到 <br className="hidden md:block" />
+        从手稿到 <br className="hidden md:block" />
         <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
-          全真三维空间
+          全真设计落地
         </span>
         ，仅需一瞬
       </h1>
       <p className="mt-4 max-w-2xl mx-auto text-xl text-slate-500">
-        不止是生成图片，Structura AI 严格遵循户型结构与尺寸。
-        新增海报与商品设计模块，全方位赋能设计行业。
+        Structura AI 升级支持室内、景观与平面海报三大领域。
+        严格遵循专业规范，让 AI 真正成为懂施工、懂生态、懂营销的设计助理。
       </p>
       <div className="mt-8 flex justify-center gap-4">
         <button 
@@ -150,9 +154,9 @@ const Hero = ({ onStart }) => (
       {/* Feature Grid */}
       <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8">
         {[
-          { icon: <Layers className="w-6 h-6" />, title: '多领域模型调度', desc: '针对家装、平面、商品不同领域，智能切换底层扩散模型与ControlNet参数。' },
-          { icon: <Database className="w-6 h-6" />, title: '分层知识库', desc: '设计规范、材质库、VI系统分门别类，精准投喂，避免知识污染。' },
-          { icon: <MessageSquare className="w-6 h-6" />, title: '自然语言精修', desc: '生成结果不满意？直接像聊天一样告诉 AI：“把沙发换成皮质的”。' },
+          { icon: <Layers className="w-6 h-6" />, title: '多维空间引擎', desc: '室内、景观、平面三大模型，针对不同设计场景智能切换底层算法与约束条件。' },
+          { icon: <Database className="w-6 h-6" />, title: '专业知识图谱', desc: '内置植物配置表、室内施工规范及广告法视觉库，确保设计既美观又合规。' },
+          { icon: <MessageSquare className="w-6 h-6" />, title: '自然语言精修', desc: '生成结果不满意？直接像聊天一样告诉 AI：“把草坪换成碎石铺地”。' },
         ].map((f, i) => (
           <div key={i} className="p-6 bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition text-left">
             <div className="w-12 h-12 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 mb-4">
@@ -251,8 +255,8 @@ const DesignStudio = () => {
   const [step, setStep] = useState(1);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeCategory, setActiveCategory] = useState('interior');
-  const [selectedStyle, setSelectedStyle] = useState(null);
-  const [uploadedFile, setUploadedFile] = useState(null);
+  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
   
   // History Sidebar State
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -348,8 +352,8 @@ const DesignStudio = () => {
               <Upload className="w-10 h-10" />
             </div>
             <h3 className="text-xl font-bold text-slate-900 mb-2">
-                {activeCategory === 'interior' ? '上传 CAD / 户型图' : 
-                 activeCategory === 'poster' ? '上传 草图 / 布局线稿' : '上传 产品三视图 / 模型'}
+                {activeCategory === 'interior' ? '上传 室内CAD / 户型图' : 
+                 activeCategory === 'landscape' ? '上传 景观总平图 / 地形图' : '上传 海报草图 / 布局线稿'}
             </h3>
             <p className="text-slate-500 mb-6 text-center max-w-md">
                 当前模式: <span className="text-indigo-600 font-semibold">{CATEGORIES.find(c => c.id === activeCategory)?.name}</span><br/>
@@ -368,13 +372,14 @@ const DesignStudio = () => {
             <div className="md:col-span-2 bg-slate-900 p-6 flex flex-col relative overflow-hidden">
                <div className="absolute top-4 left-4 z-10 bg-black/50 backdrop-blur text-white px-3 py-1 rounded-md text-xs font-mono flex items-center border border-white/20">
                 <LayoutTemplate className="w-3 h-3 mr-2" />
-                {activeCategory === 'interior' ? '结构锁定: ON' : '轮廓约束: ON'}
+                {activeCategory === 'interior' ? '结构锁定: ON' : 
+                 activeCategory === 'landscape' ? '地形匹配: ON' : '轮廓约束: ON'}
               </div>
               <div className="flex-1 flex items-center justify-center">
                  <div className="text-slate-500 text-sm font-mono border border-slate-700 p-12 rounded bg-slate-800/50">
                     [ PREVIEW OF UPLOADED FILE ]<br/>
                     MODE: {activeCategory.toUpperCase()}<br/>
-                    ANALYZING LINES...
+                    ANALYZING LINES & AREAS...
                  </div>
               </div>
             </div>
@@ -406,8 +411,9 @@ const DesignStudio = () => {
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-xs text-slate-500 mb-1">
-                      <span>{activeCategory === 'interior' ? '结构严格度' : '创意发散度'}</span>
-                      <span>{activeCategory === 'interior' ? '高' : '中'}</span>
+                      <span>{activeCategory === 'interior' ? '结构严格度' : 
+                             activeCategory === 'landscape' ? '植被丰富度' : '创意发散度'}</span>
+                      <span>{activeCategory === 'poster' ? '中' : '高'}</span>
                     </div>
                     <input type="range" className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
                   </div>
@@ -415,7 +421,10 @@ const DesignStudio = () => {
                      <div className="flex items-center text-sm font-medium text-indigo-900 mb-1">
                         <Database className="w-4 h-4 mr-2" /> 知识库联动
                      </div>
-                     <p className="text-xs text-indigo-600">已加载 {activeCategory} 类别的 12 份规范文档。</p>
+                     <p className="text-xs text-indigo-600">
+                        {activeCategory === 'interior' ? '已加载施工规范文档库。' : 
+                         activeCategory === 'landscape' ? '已加载本地植物季相数据库。' : '已加载品牌VI视觉规范。'}
+                     </p>
                   </div>
                 </div>
               </div>
@@ -448,7 +457,7 @@ const DesignStudio = () => {
                 <div className="relative max-w-4xl w-full aspect-video bg-white shadow-2xl rounded-lg overflow-hidden ring-1 ring-slate-900/5 group">
                    {/* Result Image */}
                    <img 
-                    src={currentStyles[0]?.image || "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&q=80&w=2000"} 
+                    src={currentStyles.find(s => s.id === selectedStyle)?.image || currentStyles[0]?.image}
                     className="w-full h-full object-cover" 
                     alt="Result"
                    />
@@ -495,7 +504,11 @@ const DesignStudio = () => {
                       type="text" 
                       value={refinementText}
                       onChange={(e) => setRefinementText(e.target.value)}
-                      placeholder="对结果不满意？尝试输入：'把地板换成浅色木纹' 或 '增加一点暖色氛围灯'..."
+                      placeholder={
+                        activeCategory === 'interior' ? "尝试输入：'把地板换成浅色木纹'..." : 
+                        activeCategory === 'landscape' ? "尝试输入：'增加一些低矮灌木和景观灯'..." : 
+                        "尝试输入：'标题字体放大，背景增加科技感粒子'..."
+                      }
                       className="w-full pl-4 pr-12 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
                       onKeyDown={(e) => e.key === 'Enter' && handleRefinement()}
                     />
@@ -509,10 +522,14 @@ const DesignStudio = () => {
                  </div>
                  <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                     <span className="text-xs text-slate-400 whitespace-nowrap">推荐指令:</span>
-                    {['切换为夜景模式', '增加绿植点缀', '材质更具光泽感', '背景虚化'].map((tag, i) => (
-                      <button key={i} onClick={() => setRefinementText(tag)} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md hover:bg-slate-200 transition whitespace-nowrap">
-                        {tag}
-                      </button>
+                    {activeCategory === 'interior' && ['切换为夜景模式', '增加绿植点缀', '材质更具光泽感'].map((tag, i) => (
+                      <button key={i} onClick={() => setRefinementText(tag)} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md hover:bg-slate-200 transition whitespace-nowrap">{tag}</button>
+                    ))}
+                    {activeCategory === 'landscape' && ['增加水景', '改为秋季落叶效果', '添加步道'].map((tag, i) => (
+                      <button key={i} onClick={() => setRefinementText(tag)} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md hover:bg-slate-200 transition whitespace-nowrap">{tag}</button>
+                    ))}
+                    {activeCategory === 'poster' && ['增加对比度', '主体发光效果', '极简背景'].map((tag, i) => (
+                      <button key={i} onClick={() => setRefinementText(tag)} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md hover:bg-slate-200 transition whitespace-nowrap">{tag}</button>
                     ))}
                  </div>
                </div>
@@ -534,7 +551,7 @@ const DesignStudio = () => {
                          <span className="font-semibold text-slate-800 text-sm">{item.title}</span>
                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${
                            item.type === 'interior' ? 'bg-orange-100 text-orange-700' :
-                           item.type === 'poster' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                           item.type === 'landscape' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
                          }`}>
                            {CATEGORIES.find(c => c.id === item.type)?.name}
                          </span>
