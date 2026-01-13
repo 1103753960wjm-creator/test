@@ -76,6 +76,13 @@ const MOCK_KNOWLEDGE_FILES = [
   { name: '品牌VI视觉规范.pdf', size: '12MB', type: 'doc', status: 'learned', category: 'poster' }
 ];
 
+const MOCK_RESULTS_INTERIOR = [
+  { id: 0, name: '主视图 (Main)', url: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&q=80&w=2000' },
+  { id: 1, name: '俯视图 (Top)', url: 'https://images.unsplash.com/photo-1505691938895-1758d7fab51c?auto=format&fit=crop&q=80&w=2000' },
+  { id: 2, name: '电视墙 (Wall A)', url: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&q=80&w=2000' },
+  { id: 3, name: '沙发区 (Wall B)', url: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&q=80&w=2000' },
+];
+
 // --- Components ---
 
 const Header = ({ activeTab, setActiveTab, isMobileMenuOpen, setIsMobileMenuOpen }) => (
@@ -256,7 +263,12 @@ const DesignStudio = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeCategory, setActiveCategory] = useState('interior');
   const [selectedStyle, setSelectedStyle] = useState(null);
+  const [customStyleText, setCustomStyleText] = useState('');
   const [uploadedFile, setUploadedFile] = useState(null);
+  
+  // 3D Workflow States
+  const [cameras, setCameras] = useState({ main: true, top: true, wallA: false, wallB: false });
+  const [selectedResultView, setSelectedResultView] = useState(0);
   
   // History Sidebar State
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -270,7 +282,7 @@ const DesignStudio = () => {
 
   const handleUpload = () => {
     setUploadedFile("demo_file.dxf");
-    setTimeout(() => setStep(2), 800);
+    setTimeout(() => setStep(2), 1000);
   };
 
   const handleGenerate = () => {
@@ -278,7 +290,7 @@ const DesignStudio = () => {
     setTimeout(() => {
       setIsProcessing(false);
       setStep(3);
-    }, 2000);
+    }, activeCategory === 'interior' ? 3500 : 2000);
   };
 
   const handleRefinement = () => {
@@ -295,9 +307,13 @@ const DesignStudio = () => {
   const handleRestoreHistory = (item) => {
     if(window.confirm(`确定要加载历史项目 "${item.title}" 及其参数吗？`)) {
         setActiveCategory(item.type);
-        setStep(3); // Jump to result for demo
+        setStep(3);
         setIsHistoryOpen(false);
     }
+  };
+
+  const toggleCamera = (key) => {
+    setCameras(prev => ({...prev, [key]: !prev[key]}));
   };
 
   return (
@@ -365,23 +381,64 @@ const DesignStudio = () => {
           </div>
         )}
 
-        {/* Step 2: Configuration */}
+        {/* Step 2: Configuration & 3D Pre-visualization */}
         {step === 2 && (
           <div className="w-full h-full grid grid-cols-1 md:grid-cols-3">
-            {/* Left: Preview */}
-            <div className="md:col-span-2 bg-slate-900 p-6 flex flex-col relative overflow-hidden">
-               <div className="absolute top-4 left-4 z-10 bg-black/50 backdrop-blur text-white px-3 py-1 rounded-md text-xs font-mono flex items-center border border-white/20">
-                <LayoutTemplate className="w-3 h-3 mr-2" />
-                {activeCategory === 'interior' ? '结构锁定: ON' : 
-                 activeCategory === 'landscape' ? '地形匹配: ON' : '轮廓约束: ON'}
-              </div>
-              <div className="flex-1 flex items-center justify-center">
-                 <div className="text-slate-500 text-sm font-mono border border-slate-700 p-12 rounded bg-slate-800/50">
-                    [ PREVIEW OF UPLOADED FILE ]<br/>
-                    MODE: {activeCategory.toUpperCase()}<br/>
-                    ANALYZING LINES & AREAS...
+            {/* Left: Preview (2D or 3D Whitebox) */}
+            <div className="md:col-span-2 bg-slate-900 p-6 flex flex-col relative overflow-hidden group">
+               <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+                  <div className="bg-black/50 backdrop-blur text-white px-3 py-1 rounded-md text-xs font-mono flex items-center border border-white/20">
+                    <Box className="w-3 h-3 mr-2" />
+                    {activeCategory === 'interior' ? '结构锁定: 3D WHITEBOX' : 
+                    activeCategory === 'landscape' ? '地形匹配: ON' : '轮廓约束: ON'}
+                  </div>
+                  {activeCategory === 'interior' && (
+                     <div className="bg-indigo-900/80 backdrop-blur text-indigo-100 px-3 py-1 rounded-md text-xs font-mono flex items-center border border-indigo-500/30">
+                        <Box className="w-3 h-3 mr-2" />
+                        已生成白模 (Auto-Modeling)
+                     </div>
+                  )}
+               </div>
+
+               {/* Visualization Area */}
+               <div className="flex-1 flex items-center justify-center relative">
+                 {/* 3D Camera Controls Overlay for Interior */}
+                 {activeCategory === 'interior' && (
+                    <div className="absolute bottom-6 left-6 right-6 bg-slate-800/90 backdrop-blur p-4 rounded-xl border border-slate-700 flex items-center justify-between z-20">
+                        <div className="flex items-center text-white font-medium text-sm">
+                            <Box className="w-4 h-4 mr-2 text-indigo-400" />
+                            虚拟拍摄机位
+                        </div>
+                        <div className="flex space-x-3">
+                            <label className="flex items-center space-x-2 bg-slate-700 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-slate-600 transition">
+                                <input type="checkbox" checked={cameras.main} onChange={() => toggleCamera('main')} className="rounded text-indigo-500 bg-slate-800 border-slate-600" />
+                                <span className="text-xs text-slate-200">主视角</span>
+                            </label>
+                            <label className="flex items-center space-x-2 bg-slate-700 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-slate-600 transition">
+                                <input type="checkbox" checked={cameras.top} onChange={() => toggleCamera('top')} className="rounded text-indigo-500 bg-slate-800 border-slate-600" />
+                                <span className="text-xs text-slate-200">俯视图</span>
+                            </label>
+                            <label className="flex items-center space-x-2 bg-slate-700 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-slate-600 transition">
+                                <input type="checkbox" checked={cameras.wallA} onChange={() => toggleCamera('wallA')} className="rounded text-indigo-500 bg-slate-800 border-slate-600" />
+                                <span className="text-xs text-slate-200">立面A</span>
+                            </label>
+                        </div>
+                    </div>
+                 )}
+
+                 <div className="text-slate-500 text-sm font-mono border border-slate-700 p-12 rounded bg-slate-800/50 flex flex-col items-center">
+                    {/* Placeholder visual */}
+                    {activeCategory === 'interior' ? (
+                       <Box className="w-16 h-16 text-indigo-500 mb-4 animate-pulse" />
+                    ) : (
+                       <ImageIcon className="w-16 h-16 text-slate-600 mb-4" />
+                    )}
+                    <span className="text-center">
+                        {activeCategory === 'interior' ? '[ 3D 白模预览区 ]\n可拖拽旋转视角\n已自动拉伸墙体高度 2.8m' : 
+                        '[ 2D 线稿预览区 ]\n结构分析中...'}
+                    </span>
                  </div>
-              </div>
+               </div>
             </div>
 
             {/* Right: Settings */}
@@ -403,7 +460,41 @@ const DesignStudio = () => {
                       <div className="font-semibold text-sm text-slate-900">{s.name}</div>
                     </button>
                   ))}
+                  
+                  {/* Custom Style Button */}
+                  <button 
+                    onClick={() => setSelectedStyle('custom')}
+                    className={`relative p-2 rounded-lg border text-left transition-all flex flex-col items-center justify-center text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:bg-slate-50 ${selectedStyle === 'custom' ? 'border-indigo-600 ring-2 ring-indigo-100 bg-indigo-50 text-indigo-600' : 'border-dashed border-slate-300'}`}
+                  >
+                    <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center mb-2">
+                       <Zap className="w-5 h-5" />
+                    </div>
+                    <div className="font-semibold text-sm">自定义风格</div>
+                    <div className="text-xs opacity-70">支持参考图</div>
+                  </button>
                 </div>
+
+                {/* Custom Style Inputs */}
+                {selectedStyle === 'custom' && (
+                  <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-indigo-100 animate-in fade-in slide-in-from-top-2 duration-200 space-y-3">
+                    <div>
+                        <label className="block text-xs font-medium text-slate-500 mb-1">风格描述 Prompt</label>
+                        <textarea 
+                        className="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                        rows={2}
+                        placeholder="例：红砖工业风，暖色灯光..."
+                        value={customStyleText}
+                        onChange={(e) => setCustomStyleText(e.target.value)}
+                        ></textarea>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-500 mb-1">参考图 (IP-Adapter)</label>
+                        <div className="border border-dashed border-slate-300 rounded-lg p-2 text-center text-xs text-slate-400 bg-white hover:bg-slate-50 cursor-pointer flex items-center justify-center gap-2">
+                            <Upload className="w-3 h-3" /> 上传参考图片
+                        </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="mb-8">
@@ -411,9 +502,8 @@ const DesignStudio = () => {
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between text-xs text-slate-500 mb-1">
-                      <span>{activeCategory === 'interior' ? '结构严格度' : 
-                             activeCategory === 'landscape' ? '植被丰富度' : '创意发散度'}</span>
-                      <span>{activeCategory === 'poster' ? '中' : '高'}</span>
+                      <span>{activeCategory === 'interior' ? '结构锁定强度 (ControlNet)' : '创意发散度'}</span>
+                      <span>{activeCategory === 'interior' ? '高 (1.0)' : '中 (0.6)'}</span>
                     </div>
                     <input type="range" className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
                   </div>
@@ -437,11 +527,13 @@ const DesignStudio = () => {
               >
                 {isProcessing ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin mr-2" /> AI 计算中...
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" /> 
+                    {activeCategory === 'interior' ? '渲染全屋多视角...' : 'AI 计算中...'}
                   </>
                 ) : (
                   <>
-                    <Zap className="w-5 h-5 mr-2" /> 开始生成
+                    <Zap className="w-5 h-5 mr-2" /> 
+                    {activeCategory === 'interior' ? '开始批量渲染' : '开始生成'}
                   </>
                 )}
               </button>
@@ -455,14 +547,15 @@ const DesignStudio = () => {
             {/* Main Canvas Area */}
             <div className="flex-1 relative flex items-center justify-center p-8 overflow-hidden">
                 <div className="relative max-w-4xl w-full aspect-video bg-white shadow-2xl rounded-lg overflow-hidden ring-1 ring-slate-900/5 group">
-                   {/* Result Image */}
+                   {/* Result Image - Multi-view for Interior */}
                    <img 
-                    src={currentStyles.find(s => s.id === selectedStyle)?.image || currentStyles[0]?.image}
+                    src={activeCategory === 'interior' ? MOCK_RESULTS_INTERIOR[selectedResultView]?.url : 
+                        currentStyles.find(s => s.id === selectedStyle)?.image || currentStyles[0]?.image}
                     className="w-full h-full object-cover" 
                     alt="Result"
                    />
                    
-                   {/* Image Overlay Controls - Updated: Always visible and emphasized */}
+                   {/* Image Overlay Controls */}
                    <div className="absolute top-4 right-4 flex space-x-2">
                       <button className="p-2 bg-black/60 text-white rounded-lg hover:bg-black/80 backdrop-blur transition-colors" title="全屏预览">
                         <Maximize2 className="w-4 h-4" />
@@ -470,15 +563,49 @@ const DesignStudio = () => {
                       <button className="p-2 bg-black/60 text-white rounded-lg hover:bg-black/80 backdrop-blur transition-colors" title="重新生成">
                         <RefreshCw className="w-4 h-4" />
                       </button>
-                      <button 
-                        className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-lg transition-colors flex items-center space-x-1" 
-                        title="下载高清原图"
-                        onClick={() => alert("开始下载高清渲染图 (4K)...")}
-                      >
-                        <Download className="w-4 h-4" />
-                        <span className="text-xs font-bold">下载原图</span>
-                      </button>
+                      {activeCategory === 'interior' ? (
+                        <button 
+                          className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-lg transition-colors flex items-center space-x-1"
+                          title="下载套图"
+                          onClick={() => alert("开始打包下载所有视角高清图 (4K)...")}
+                        >
+                          <Download className="w-4 h-4" />
+                          <span className="text-xs font-bold">下载套图</span>
+                        </button>
+                      ) : (
+                        <button 
+                          className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-lg transition-colors flex items-center space-x-1"
+                          title="下载高清原图"
+                          onClick={() => alert("开始下载高清渲染图 (4K)...")}
+                        >
+                          <Download className="w-4 h-4" />
+                          <span className="text-xs font-bold">下载原图</span>
+                        </button>
+                      )}
                    </div>
+
+                   {/* View Label */}
+                   <div className="absolute top-4 left-4 bg-black/50 text-white px-3 py-1 rounded-full text-xs font-medium backdrop-blur">
+                        {activeCategory === 'interior' ? MOCK_RESULTS_INTERIOR[selectedResultView]?.name : 'Generated Result'}
+                   </div>
+
+                   {/* Multi-View Thumbnail Strip (Only for Interior) */}
+                   {activeCategory === 'interior' && (
+                       <div className="h-24 bg-white border-t border-slate-200 p-2 flex space-x-2 overflow-x-auto items-center">
+                            {MOCK_RESULTS_INTERIOR.map((view, idx) => (
+                                <div 
+                                    key={view.id} 
+                                    onClick={() => setSelectedResultView(idx)}
+                                    className={`relative w-32 h-20 rounded-lg overflow-hidden cursor-pointer border-2 transition-all flex-shrink-0 ${selectedResultView === idx ? 'border-indigo-600 ring-2 ring-indigo-100' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                                >
+                                    <img src={view.url} className="w-full h-full object-cover" alt={view.name} />
+                                    <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[10px] p-1 text-center truncate">
+                                        {view.name}
+                                    </div>
+                                </div>
+                            ))}
+                       </div>
+                   )}
                    
                    {/* Refinement Loading Overlay */}
                    {refining && (
